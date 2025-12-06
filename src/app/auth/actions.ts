@@ -4,9 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 import { createClient } from '@/lib/supabase/server'
-
-const { HUBPOST_SITE_UTL } = process.env
-console.log(HUBPOST_SITE_UTL)
+import { getURL } from '@/lib/utils'
 
 export async function login(formData: FormData) {
     const supabase = await createClient()
@@ -52,7 +50,7 @@ export async function loginWithGoogle() {
     const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-            redirectTo: `${HUBPOST_SITE_UTL}/auth/callback`,
+            redirectTo: getURL('/auth/callback'),
         },
     })
 
@@ -61,7 +59,6 @@ export async function loginWithGoogle() {
     }
 
     if (data.url) {
-        console.log(data.url, "========================redirect==========")
         redirect(data.url)
     }
 }
