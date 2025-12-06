@@ -14,8 +14,19 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-	title: "HubHR",
-	description: "Modern Hiring Platform",
+	title: "HubHR - Modern Recruitment Platform for Fast Teams",
+	description: "Streamline your hiring with AI job descriptions, visual pipelines, and team collaboration. The HubPost Labs HR solution.",
+	keywords: ["HubHR", "HubPost", "HR Software", "Applicant Tracking System", "Recruitment", "Hiring", "AI Recruitment"],
+	openGraph: {
+		images: [
+			{
+				url: "/og-image.png",
+				width: 1200,
+				height: 630,
+				alt: "HubHR Dashboard Preview",
+			},
+		],
+	},
 };
 
 export default function RootLayout({
