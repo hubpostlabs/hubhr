@@ -150,3 +150,39 @@ export async function updateJob(jobId: string, orgId: string, input: Partial<Cre
     revalidatePath(`/${orgId}/jobs`)
     return { data }
 }
+
+export async function archiveJob(jobId: string, orgId: string) {
+    const supabase = await createClient()
+
+    const { data, error } = await supabase
+        .from('jobs')
+        .update({ status: 'archived', updated_at: new Date().toISOString() })
+        .eq('id', jobId)
+        .eq('org_id', orgId)
+        .select()
+        .single()
+
+    if (error) {
+        return { error: error.message }
+    }
+
+    revalidatePath(`/${orgId}/jobs`)
+    return { data }
+}
+
+export async function deleteJob(jobId: string, orgId: string) {
+    const supabase = await createClient()
+
+    const { error } = await supabase
+        .from('jobs')
+        .delete()
+        .eq('id', jobId)
+        .eq('org_id', orgId)
+
+    if (error) {
+        return { error: error.message }
+    }
+
+    revalidatePath(`/${orgId}/jobs`)
+    return { success: true }
+}

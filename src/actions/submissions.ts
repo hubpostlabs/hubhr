@@ -1,6 +1,7 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 
 const submissionSchema = z.object({
@@ -34,6 +35,18 @@ export async function submitApplication(formData: FormData) {
 
     if (!resumeFile || resumeFile.size === 0) {
         return { error: 'Resume is required' }
+    }
+
+    // 2. Duplicate Check
+    const { data: existing } = await supabase
+        .from('job_submissions')
+        .select('id')
+        .eq('job_id', job_id)
+        .eq('email', email)
+        .single()
+
+    if (existing) {
+        return { error: 'You have already applied for this job.' }
     }
 
     // Fetch Job to get Org ID
@@ -84,7 +97,7 @@ export async function submitApplication(formData: FormData) {
     }
 
     // 3. Insert Submission Record
-    const { error: insertError } = await supabase
+    const { data: submissionData, error: insertError } = await supabase
         .from('job_submissions')
         .insert({
             job_id,
@@ -96,20 +109,117 @@ export async function submitApplication(formData: FormData) {
             status: 'new',
             reviewer_notes: cover_letter ? { cover_letter } : {},
         })
+        .select('id') // Return ID for scoring
+        .single()
 
-    if (insertError) {
+    if (insertError || !submissionData) {
         console.error('DB Insert Error:', insertError)
         return { error: 'Failed to save application' }
+    }
+
+    // 4. Async Scoring
+    try {
+        const { getCloudflareContext } = await import('@opennextjs/cloudflare')
+        const { ctx } = await getCloudflareContext()
+        // Use waitUntil to process in background
+        ctx.waitUntil(scoreResume(submissionData.id))
+    } catch (e) {
+        console.warn('Could not access Cloudflare context, skipping async score', e)
+        // Fallback or ignore in dev mode if not running in worker
+        // scoreResume(submissionData.id) // Optionally run sync if safe? better not block.
     }
 
     return { success: true }
 }
 
+import { scoreResume } from '@/lib/scoring'
+
 
 import { Submission } from '@/types/submission'
 
+export async function scheduleInterview(
+    submissionId: string,
+    interviewData: {
+        date: string
+        time: string
+        interviewer?: string
+        notes?: string
+    }
+) {
+    const supabase = createAdminClient()
+
+    // Get current submission data
+    const { data: submission } = await supabase
+        .from('job_submissions')
+        .select('reviewer_notes')
+        .eq('id', submissionId)
+        .single()
+
+    const currentNotes = submission?.reviewer_notes || {}
+
+    // Create Round 1 with the interview data
+    const round1 = {
+        round_number: 1,
+        round_type: 'phone_screen', // Default to phone screen for first round
+        scheduled_date: interviewData.date,
+        scheduled_time: interviewData.time,
+        interviewer: interviewData.interviewer,
+        interviewer_email: '', // Can be added later
+        status: 'scheduled',
+        outcome: 'pending',
+        notes: interviewData.notes,
+        created_at: new Date().toISOString()
+    }
+
+    const updatedNotes = {
+        ...currentNotes,
+        interview_rounds: [round1],
+        // Keep legacy interview field for backward compatibility
+        interview: {
+            date: interviewData.date,
+            time: interviewData.time,
+            interviewer: interviewData.interviewer,
+            notes: interviewData.notes,
+            scheduled_at: new Date().toISOString()
+        }
+    }
+
+    const { data, error } = await supabase
+        .from('job_submissions')
+        .update({
+            status: 'interviewing', // Set to interviewing (not interview_scheduled)
+            reviewer_notes: updatedNotes,
+            updated_at: new Date().toISOString()
+        })
+        .eq('id', submissionId)
+        .select()
+        .single()
+
+    if (error) {
+        console.error('Error scheduling interview:', error)
+        return { error: error.message }
+    }
+
+    revalidatePath('/[orgId]/shortlist')
+    revalidatePath('/[orgId]/interviews')
+
+    return { data }
+}
+
 export async function getJobSubmissions(jobId: string) {
     const supabase = createAdminClient()
+
+    // 1. Fetch Job to get Org ID (for Bucket Name)
+    const { data: job, error: jobError } = await supabase
+        .from('jobs')
+        .select('org_id')
+        .eq('id', jobId)
+        .single()
+
+    if (jobError || !job) {
+        console.error('Error fetching job details:', jobError)
+        return { error: 'Job not found' }
+    }
 
     const { data, error } = await supabase
         .from('job_submissions')
@@ -122,7 +232,22 @@ export async function getJobSubmissions(jobId: string) {
         return { error: error.message }
     }
 
-    return { data: data as Submission[] }
+    // 2. Generate Signed URLs for Resumes
+    const enrichedSubmissions = await Promise.all(data.map(async (sub) => {
+        let resumeUrl = null
+        if (sub.resume_path) {
+            const { data: signedData } = await supabase.storage
+                .from(job.org_id)
+                .createSignedUrl(sub.resume_path, 3600) // 1 hour validity
+
+            if (signedData) {
+                resumeUrl = signedData.signedUrl
+            }
+        }
+        return { ...sub, resume_url: resumeUrl }
+    }))
+
+    return { data: enrichedSubmissions as Submission[] }
 }
 
 export async function getOrgSubmissions(orgId: string) {

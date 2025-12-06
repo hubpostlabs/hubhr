@@ -6,13 +6,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { createJob, generateJobDescription, updateJob } from '@/actions/jobs'
+import { createJob, generateJobDescription, updateJob, deleteJob } from '@/actions/jobs'
 import { toast } from 'sonner'
 import { Loader2, Wand2, FileText, ArrowLeft, Sparkles, LayoutTemplate, CheckCircle2, Bot } from 'lucide-react'
 import { CreateJobInput, Job } from '@/types/jobs'
 import { useRouter } from 'next/navigation'
 import ReactMarkdown from 'react-markdown'
 import { cn } from '@/lib/utils'
+import { JobWizard } from './job-wizard/job-wizard'
 
 export function CreateJobForm({ org, initialData }: { org: any, initialData?: Job }) {
     const router = useRouter()
@@ -231,131 +232,129 @@ export function CreateJobForm({ org, initialData }: { org: any, initialData?: Jo
         )
     }
 
-    // --- MANUAL / EDITOR MODE (Split View) ---
+    // --- MANUAL / WIZARD MODE ---
+
+    // Helper to parse content_md into sections
+    const parseContent = (content: string) => {
+        const sections = {
+            responsibilities: '',
+            requirements: ''
+        }
+        if (!content) return sections
+
+        const parts = content.split('## Requirements')
+        if (parts.length > 1) {
+            sections.requirements = parts[1].trim()
+            // Remove "## Responsibilities" from the first part if it exists there
+            const respParts = parts[0].split('## Responsibilities')
+            sections.responsibilities = respParts.length > 1 ? respParts[1].trim() : respParts[0].trim()
+        } else {
+            // Try just splitting responsibilities if requirements missing
+            const respParts = content.split('## Responsibilities')
+            sections.responsibilities = respParts.length > 1 ? respParts[1].trim() : content
+        }
+        return sections
+    }
+
+    // Helper to merge sections into content_md
+    const mergeContent = (data: any) => {
+        let md = ''
+        if (data.responsibilities) {
+            md += `## Responsibilities\n\n${data.responsibilities}\n\n`
+        }
+        if (data.requirements) {
+            md += `## Requirements\n\n${data.requirements}`
+        }
+        return md
+    }
+
+    const { responsibilities, requirements } = parseContent(formData.content_md || '')
+
+    // Initial data for wizard, merging parsed markdown sections
+    const wizardInitialData = {
+        ...formData,
+        responsibilities,
+        requirements,
+        // Ensure apply_fields is potentially parsed if it comes from DB (it might be in formData already)
+        apply_fields: Array.isArray(formData.apply_fields) ? formData.apply_fields :
+            typeof formData.apply_fields === 'string' ? JSON.parse(formData.apply_fields) :
+                [{ id: '1', question: 'Resume', type: 'file', required: true }] // Default fallback if empty
+    }
+
+
+    const handleWizardSave = async (data: any, status: 'draft' | 'published') => {
+        setIsLoading(true)
+        try {
+            const content_md = mergeContent(data)
+
+            // Clean up data for submission
+            const submissionData = {
+                ...data,
+                content_md,
+                status,
+                // Ensure number types if schema requires, though it seems text mostly
+            }
+
+            // Remove temp fields
+            delete submissionData.responsibilities
+            delete submissionData.requirements
+
+            let res;
+            if (initialData) {
+                res = await updateJob(initialData.id, org.id, submissionData)
+            } else {
+                res = await createJob(org.id, {
+                    ...submissionData,
+                    title: submissionData.title || 'Untitled Job',
+                } as CreateJobInput)
+            }
+
+            if (res.error) {
+                toast.error(res.error as any)
+            } else {
+                toast.success(`Job ${status === 'published' ? 'published' : 'saved'}`)
+                router.push(`/${org.id}/jobs`)
+            }
+        } catch (e) {
+            toast.error("Something went wrong")
+            console.error(e)
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+
+
+
+    const handleWizardDelete = async () => {
+        if (!initialData?.id || !org?.id) return
+
+        setIsLoading(true)
+        try {
+            const res = await deleteJob(initialData.id, org.id)
+            if (res.error) {
+                toast.error(res.error)
+            } else {
+                toast.success("Job deleted")
+                router.push(`/${org.id}/jobs`)
+            }
+        } catch (e) {
+            toast.error("Failed to delete job")
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+
     return (
-        <div className="w-full h-[calc(100vh-140px)] flex flex-col gap-4">
-            {/* Toolbar */}
-            <div className="flex items-center justify-between px-1">
-                <div className="flex flex-col gap-1">
-                    <h2 className="text-xl font-bold flex items-center gap-2">
-                        {mode === 'manual' && formData.title ? formData.title : 'New Job Post'}
-                    </h2>
-                    <p className="text-xs text-muted-foreground">
-                        {formData.status === 'draft' ? 'Draft - Unsaved changes' : 'Published'}
-                    </p>
-                </div>
-                <div className="flex items-center gap-3">
-                    <Button variant="ghost" onClick={() => setMode('select')} className="text-muted-foreground hover:text-foreground">
-                        Discard
-                    </Button>
-                    <div className="h-6 w-px bg-border mx-1" />
-                    <Button
-                        variant="outline"
-                        onClick={() => handleSave('draft')}
-                        disabled={isLoading || formData.status === 'draft'}
-                    >
-                        {formData.status === 'draft' ? 'Saved as Draft' : 'Save Draft'}
-                    </Button>
-                    <Button
-                        onClick={() => handleSave('published')}
-                        disabled={isLoading || formData.status === 'published'}
-                        className="bg-indigo-600 hover:bg-indigo-700 shadow-sm"
-                    >
-                        {formData.status === 'published' ? 'Published' : 'Publish Now'}
-                    </Button>
-                </div>
-            </div>
-
-            {/* Main Editor Area - Split View */}
-            <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_1fr] gap-6 min-h-0">
-
-                {/* Left Column: Inputs */}
-                <div className="flex flex-col gap-6 overflow-y-auto pr-4 pb-10">
-                    <Card className="border-0 shadow-none bg-transparent">
-                        <CardContent className="p-0 space-y-6">
-                            {/* Core Info */}
-                            <div className="space-y-4 p-5 bg-white rounded-xl border shadow-sm">
-                                <h3 className="font-semibold flex items-center gap-2 text-sm text-muted-foreground uppercase tracking-wider">
-                                    <FileText className="h-4 w-4" /> Core Details
-                                </h3>
-                                <div className="grid gap-4">
-                                    <div className="grid gap-1.5">
-                                        <Label>Job Title</Label>
-                                        <Input value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} className="font-medium" />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="grid gap-1.5">
-                                            <Label>Team</Label>
-                                            <Input value={formData.team} onChange={e => setFormData({ ...formData, team: e.target.value })} />
-                                        </div>
-                                        <div className="grid gap-1.5">
-                                            <Label>Role</Label>
-                                            <Input value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })} />
-                                        </div>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="grid gap-1.5">
-                                            <Label>Location</Label>
-                                            <Input value={formData.location} onChange={e => setFormData({ ...formData, location: e.target.value })} />
-                                        </div>
-                                        <div className="grid gap-1.5">
-                                            <Label>Employment Type</Label>
-                                            <Input value={formData.employment_type} onChange={e => setFormData({ ...formData, employment_type: e.target.value })} placeholder="Full-time" />
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Editor */}
-                            <div className="flex flex-col flex-1 p-5 bg-white rounded-xl border shadow-sm h-full">
-                                <h3 className="font-semibold flex items-center gap-2 text-sm text-muted-foreground uppercase tracking-wider mb-4">
-                                    <LayoutTemplate className="h-4 w-4" /> Description
-                                </h3>
-                                <div className="flex-1">
-                                    <Textarea
-                                        className="min-h-[500px] h-full font-mono text-sm leading-relaxed border-zinc-200 resize-none focus-visible:ring-indigo-500"
-                                        value={formData.content_md}
-                                        onChange={e => setFormData({ ...formData, content_md: e.target.value })}
-                                        placeholder="# Role Summary..."
-                                    />
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-
-                {/* Right Column: Preview */}
-                <div className="hidden lg:flex flex-col overflow-hidden rounded-xl border bg-white shadow-sm">
-                    <div className="border-b bg-zinc-50/50 px-4 py-3 flex items-center justify-between">
-                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                            Live Preview
-                            <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded text-[10px]">Mobile Ready</span>
-                        </span>
-                    </div>
-                    <div className="flex-1 overflow-y-auto p-8 prose prose-zinc max-w-none dark:prose-invert">
-                        {/* Header Preview */}
-                        <div className="mb-8 border-b pb-6 not-prose">
-                            <h1 className="text-3xl font-bold tracking-tight mb-2 text-zinc-900">{formData.title || "Job Title"}</h1>
-                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                <span>{formData.team || "Team"}</span>
-                                <span>•</span>
-                                <span>{formData.location || "Location"}</span>
-                                <span>•</span>
-                                <span>{formData.employment_type || "Type"}</span>
-                            </div>
-                        </div>
-
-                        {formData.content_md ? (
-                            <ReactMarkdown>
-                                {formData.content_md}
-                            </ReactMarkdown>
-                        ) : (
-                            <div className="flex h-full items-center justify-center text-muted-foreground italic">
-                                Start typing description to preview...
-                            </div>
-                        )}
-                    </div>
-                </div>
+        <div className="w-full min-h-screen bg-zinc-50/30">
+            <div className="w-full max-w-[1600px] mx-auto pt-6 px-4">
+                <JobWizard
+                    initialData={wizardInitialData}
+                    onSave={handleWizardSave}
+                    onBack={() => setMode('select')}
+                    onDelete={initialData?.id ? handleWizardDelete : undefined}
+                />
             </div>
         </div>
     )

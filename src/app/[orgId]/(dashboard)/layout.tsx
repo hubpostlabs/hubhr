@@ -43,12 +43,10 @@ export default async function DashboardLayout({
     return (
         <DashboardSidebarProvider>
             <AppSidebar orgId={orgId} />
-            <SidebarInset>
+            <SidebarInset className="bg-zinc-50/50">
                 <Header user={user} currentOrg={currentOrg} userOrgs={userOrgs} />
-                <div className="flex flex-1 flex-col gap-4 p-2 lg:gap-6 lg:p-4 bg-sidebar">
-                    <div className="w-full bg-white h-full p-6 shadow-xs">
-                        {children}
-                    </div>
+                <div className="flex flex-1 flex-col p-6">
+                    {children}
                 </div>
             </SidebarInset>
         </DashboardSidebarProvider>

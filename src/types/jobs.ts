@@ -15,7 +15,15 @@ export const JobSchema = z.object({
     required_skills: z.array(z.string()).default([]),
     location: z.string().nullable(),
     employment_type: z.string().nullable(),
-    apply_fields: z.array(z.string()).default(["name", "email", "phone", "resume"]),
+    apply_fields: z.union([
+        z.array(z.string()),
+        z.array(z.object({
+            id: z.string(),
+            question: z.string(),
+            type: z.string(),
+            required: z.boolean()
+        }))
+    ]).default(["name", "email", "phone", "resume"]),
     status: JobStatusSchema,
     created_by: z.string().uuid().nullable(),
     created_at: z.string(),
@@ -40,7 +48,15 @@ export const CreateJobSchema = z.object({
     required_skills: z.array(z.string()).optional(),
     location: z.string().optional(),
     employment_type: z.string().optional(),
-    apply_fields: z.array(z.string()).optional()
+    apply_fields: z.union([
+        z.array(z.string()),
+        z.array(z.object({
+            id: z.string(),
+            question: z.string(),
+            type: z.string(),
+            required: z.boolean()
+        }))
+    ]).optional()
 })
 
 export type CreateJobInput = z.infer<typeof CreateJobSchema>

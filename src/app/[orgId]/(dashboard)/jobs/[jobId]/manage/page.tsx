@@ -1,6 +1,6 @@
 import { getJob } from '@/actions/jobs'
 import { getJobSubmissions } from '@/actions/submissions'
-import { CandidatesTable } from '@/components/dashboard/candidates-table'
+import { CandidateScoringBoard } from '@/components/dashboard/candidate-scoring-board'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -27,12 +27,12 @@ export default async function JobDashboardPage({
     const submissions = subRes.data || []
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4">
             {/* Header */}
             <div>
                 <Link
                     href={`/${orgId}/jobs`}
-                    className="inline-flex items-center text-sm text-zinc-500 hover:text-zinc-900 mb-4 transition-colors"
+                    className="inline-flex items-center text-sm text-zinc-500 hover:text-zinc-900 mb-3 transition-colors"
                 >
                     <ArrowLeft className="h-4 w-4 mr-1" />
                     Back to Jobs
@@ -73,12 +73,12 @@ export default async function JobDashboardPage({
             <Separator />
 
             {/* Candidates Section */}
-            <div className="space-y-4">
+            <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-semibold">Candidates ({submissions.length})</h2>
+                    <h2 className="text-lg font-semibold">Candidates ({submissions.length}) - AI Analysis</h2>
                 </div>
 
-                <CandidatesTable submissions={submissions} orgId={job.org_id} />
+                <CandidateScoringBoard submissions={submissions} orgId={orgId} />
             </div>
         </div>
     )
