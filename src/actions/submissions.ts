@@ -3,6 +3,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
+import { waitUntil } from '@vercel/functions'
 
 const submissionSchema = z.object({
     name: z.string().min(2, 'Name is required'),
@@ -11,6 +12,8 @@ const submissionSchema = z.object({
     cover_letter: z.string().optional(),
     job_id: z.string(),
 })
+
+
 
 export async function submitApplication(formData: FormData) {
     const supabase = createAdminClient()
@@ -118,16 +121,9 @@ export async function submitApplication(formData: FormData) {
     }
 
     // 4. Async Scoring
-    try {
-        const { getCloudflareContext } = await import('@opennextjs/cloudflare')
-        const { ctx } = await getCloudflareContext()
-        // Use waitUntil to process in background
-        ctx.waitUntil(scoreResume(submissionData.id))
-    } catch (e) {
-        console.warn('Could not access Cloudflare context, skipping async score', e)
-        // Fallback or ignore in dev mode if not running in worker
-        // scoreResume(submissionData.id) // Optionally run sync if safe? better not block.
-    }
+    // 4. Async Scoring
+    // Use waitUntil for background processing on Vercel
+    waitUntil(scoreResume(submissionData.id))
 
     return { success: true }
 }
