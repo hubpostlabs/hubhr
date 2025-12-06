@@ -1,7 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { getApplicationStats, getDashboardStats, getRecentActivity } from '@/actions/dashboard'
+import { StatsCards } from '@/components/dashboard/stats-cards'
+import { OverviewChart } from '@/components/dashboard/overview-chart'
+import { RecentActivity } from '@/components/dashboard/recent-activity'
 import { Button } from '@/components/ui/button'
-import { Plus, Users, Calendar, ArrowUpRight } from 'lucide-react'
+import { Plus, Users, Calendar } from 'lucide-react'
+import Link from 'next/link'
 
 export default async function DashboardPage({ params }: { params: Promise<{ orgId: string }> }) {
     const { orgId } = await params
@@ -9,6 +13,13 @@ export default async function DashboardPage({ params }: { params: Promise<{ orgI
     const { data: { user } } = await supabase.auth.getUser()
 
     const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User'
+
+    // Fetch dashboard data in parallel
+    const [stats, appStats, recentActivity] = await Promise.all([
+        getDashboardStats(orgId),
+        getApplicationStats(orgId),
+        getRecentActivity(orgId)
+    ])
 
     return (
         <div className="flex flex-col gap-8">
@@ -19,88 +30,30 @@ export default async function DashboardPage({ params }: { params: Promise<{ orgI
             </div>
 
             {/* Quick Stats / Overview */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                <Card className="shadow-sm">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Active Jobs</CardTitle>
-                        <BriefcaseIcon className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">12</div>
-                        <p className="text-xs text-muted-foreground">+2 from last month</p>
-                    </CardContent>
-                </Card>
-                <Card className="shadow-sm">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Candidates</CardTitle>
-                        <Users className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">248</div>
-                        <p className="text-xs text-muted-foreground">+18% from last month</p>
-                    </CardContent>
-                </Card>
-                <Card className="shadow-sm">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Interviews</CardTitle>
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">3</div>
-                        <p className="text-xs text-muted-foreground">Scheduled for today</p>
-                    </CardContent>
-                </Card>
+            <StatsCards stats={stats} />
+
+            {/* Main Content Area: Charts & Activity */}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+                <OverviewChart data={appStats} />
+                <RecentActivity activity={recentActivity} />
             </div>
 
-            {/* Main Content Area: Recent Activity & Quick Actions */}
-            <div className="grid gap-6 md:grid-cols-7 lg:grid-cols-7">
-                <Card className="col-span-4 shadow-sm">
-                    <CardHeader>
-                        <CardTitle>Recent Activity</CardTitle>
-                        <CardDescription>
-                            You have 3 unread notifications.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-4">
-                            {[1, 2, 3].map((i) => (
-                                <div key={i} className="flex items-center gap-4 rounded-md border p-3 hover:bg-muted/50 transition-colors">
-                                    <div className="h-2 w-2 rounded-full bg-blue-500" />
-                                    <div className="flex-1 space-y-1">
-                                        <p className="text-sm font-medium leading-none">New candidate applied for "Senior React Dev"</p>
-                                        <p className="text-xs text-muted-foreground">2 hours ago</p>
-                                    </div>
-                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                        <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
-                                    </Button>
-                                </div>
-                            ))}
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card className="col-span-3 shadow-sm border-dashed">
-                    <CardHeader>
-                        <CardTitle>Quick Actions</CardTitle>
-                        <CardDescription>
-                            Common tasks you might want to perform.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="grid gap-4">
-                        <Button variant="outline" className="justify-start gap-2 h-12" disabled>
-                            <Plus className="h-4 w-4" />
-                            Post a New Job
-                        </Button>
-                        <Button variant="outline" className="justify-start gap-2 h-12" disabled>
-                            <Users className="h-4 w-4" />
-                            Add Team Member
-                        </Button>
-                        <Button variant="outline" className="justify-start gap-2 h-12" disabled>
-                            <Calendar className="h-4 w-4" />
-                            Schedule Interview
-                        </Button>
-                    </CardContent>
-                </Card>
+            {/* Quick Actions - Keeping this for now as user requested interactive elements */}
+            <div className="grid gap-4 md:grid-cols-3">
+                <Link href={`/${orgId}/jobs/new`}>
+                    <Button variant="outline" className="w-full justify-start gap-2 h-12">
+                        <Plus className="h-4 w-4" />
+                        Post a New Job
+                    </Button>
+                </Link>
+                <Button variant="outline" className="w-full justify-start gap-2 h-12" disabled>
+                    <Users className="h-4 w-4" />
+                    Add Team Member (Soon)
+                </Button>
+                <Button variant="outline" className="w-full justify-start gap-2 h-12" disabled>
+                    <Calendar className="h-4 w-4" />
+                    Schedule Interview (Soon)
+                </Button>
             </div>
         </div>
     )

@@ -43,10 +43,12 @@ export default async function DashboardLayout({
     return (
         <DashboardSidebarProvider>
             <AppSidebar orgId={orgId} />
-            <SidebarInset className="bg-zinc-50/50">
-                <Header user={user} currentOrg={currentOrg} userOrgs={userOrgs} />
-                <div className="flex flex-1 flex-col p-6">
-                    {children}
+            <SidebarInset className="bg-muted/40 p-4 h-screen overflow-hidden">
+                <div className="flex flex-col h-full rounded-2xl border bg-background shadow-sm overflow-hidden">
+                    <Header user={user} currentOrg={currentOrg} userOrgs={userOrgs} />
+                    <div className="flex flex-1 flex-col p-6 overflow-y-auto">
+                        {children}
+                    </div>
                 </div>
             </SidebarInset>
         </DashboardSidebarProvider>
