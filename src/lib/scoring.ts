@@ -38,14 +38,21 @@ export async function scoreResume(submissionId: string) {
 
         // 3. Prepare for Gemini
         const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY
+        const cf_key = process.env.CF_TOKEN;
+
         if (!apiKey) {
             console.error('Scoring Error: Missing Gemini API Key')
             return
         }
 
         const genAI = new GoogleGenerativeAI(apiKey)
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" })
-
+ const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }, {
+        baseUrl: "https://gateway.ai.cloudflare.com/v1/7ed1e0283cfab82d9378191e8c95c3c2/hubhr/google-ai-studio",
+        customHeaders: {
+            "cf-aig-authorization": `Bearer ${cf_key}`
+        }
+        
+    });
         const resumeBuffer = await fileData.arrayBuffer()
         const base64Resume = Buffer.from(resumeBuffer).toString('base64')
         const mimeType = submission.resume_mime || 'application/pdf' // Default to PDF if missing

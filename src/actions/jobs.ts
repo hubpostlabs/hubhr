@@ -59,14 +59,22 @@ export async function createJob(orgId: string, input: CreateJobInput) {
 
 export async function generateJobDescription(prompt: any) {
     const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+    const cf_key = process.env.CF_TOKEN;
     if (!apiKey) {
         throw new Error("Missing Gemini API Key");
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
+    console.log(genAI)
     //list all the models
 
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }, {
+        baseUrl: "https://gateway.ai.cloudflare.com/v1/7ed1e0283cfab82d9378191e8c95c3c2/hubhr/google-ai-studio",
+        customHeaders: {
+            "cf-aig-authorization": `Bearer ${cf_key}`
+        }
+        
+    });
 
     const promptText = `
     You are an expert HR copywriter. Create a professional job description based on the following details.
