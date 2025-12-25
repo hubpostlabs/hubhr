@@ -103,6 +103,7 @@ export function GroupedJobList({ jobs }: GroupedJobListProps) {
                                 <TableCell className="font-medium">
                                     <Link
                                         href={`/${job.org_id}/jobs/${job.id}/manage`}
+                                        prefetch
                                         className="block font-medium text-foreground hover:text-indigo-600 transition-colors truncate"
                                         title={job.title}
                                     >
@@ -143,18 +144,18 @@ export function GroupedJobList({ jobs }: GroupedJobListProps) {
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
                                                 <DropdownMenuItem asChild>
-                                                    <Link href={`/${job.org_id}/jobs/${job.id}/manage`}>
+                                                    <Link prefetch href={`/${job.org_id}/jobs/${job.id}/manage`}>
                                                         Manage Job
                                                     </Link>
                                                 </DropdownMenuItem>
                                                 <DropdownMenuItem asChild>
-                                                    <Link href={`/${job.org_id}/jobs/${job.id}/edit`}>
+                                                    <Link prefetch href={`/${job.org_id}/jobs/${job.id}/edit`}>
                                                         Edit Details
                                                     </Link>
                                                 </DropdownMenuItem>
                                                 {job.status === 'published' && (
                                                     <DropdownMenuItem asChild>
-                                                        <Link href={`/${job.org_id}/jobs/${job.id}`} target="_blank">
+                                                        <Link prefetch href={`/${job.org_id}/jobs/${job.id}`} target="_blank">
                                                             <ExternalLink className="h-4 w-4 mr-2" /> View Public Page
                                                         </Link>
                                                     </DropdownMenuItem>

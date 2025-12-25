@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from 'sonner'
 import { Icons } from '@/components/icons'
+import Link from 'next/link'
 
 // Steps: 0 = Org Selection/Intro, 1 = Name, 2 = Location, 3 = Industry
 
@@ -109,17 +110,18 @@ export default function OnboardingPage() {
                         <div className="space-y-4">
                             <div className="flex flex-col gap-2">
                                 {existingOrgs.map((org) => (
-                                    <Button
+                                    <Link
                                         key={org.id}
-                                        variant="outline"
-                                        className="justify-start h-auto py-3 px-4"
-                                        onClick={() => router.push(`/${org.id}/dashboard`)}
+                                        href={`/${org.id}/dashboard`}
+                                        prefetch
+                                        className="justify-start h-auto py-3 px-4 cursor-pointer border rounded-md"
+                
                                     >
                                         <div className="flex flex-col items-start gap-1">
-                                            <span className="font-semibold">{org.name}</span>
+                                                <span className="font-semibold">{org.name}</span>
                                             <span className="text-xs text-muted-foreground">{org.role}</span>
                                         </div>
-                                    </Button>
+                                    </Link>
                                 ))}
                             </div>
                             <div className="relative">

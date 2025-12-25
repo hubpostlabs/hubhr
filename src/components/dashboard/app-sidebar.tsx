@@ -44,7 +44,7 @@ export function AppSidebar({ orgId, ...props }: AppSidebarProps) {
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
-                            <Link href={`/${orgId}/dashboard`}>
+                            <Link prefetch href={`/${orgId}/dashboard`}>
                                 <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
                                     <Icons.spinner className="size-4" />
                                 </div>

@@ -31,6 +31,7 @@ export default async function JobDashboardPage({
             {/* Header */}
             <div>
                 <Link
+                    prefetch
                     href={`/${orgId}/jobs`}
                     className="inline-flex items-center text-sm text-zinc-500 hover:text-zinc-900 mb-3 transition-colors"
                 >

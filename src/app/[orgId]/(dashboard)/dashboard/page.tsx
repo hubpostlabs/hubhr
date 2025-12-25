@@ -40,7 +40,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ orgI
 
             {/* Quick Actions - Keeping this for now as user requested interactive elements */}
             <div className="grid gap-4 md:grid-cols-3">
-                <Link href={`/${orgId}/jobs/new`}>
+                <Link prefetch href={`/${orgId}/jobs/new`}>
                     <Button variant="outline" className="w-full justify-start gap-2 h-12">
                         <Plus className="h-4 w-4" />
                         Post a New Job
